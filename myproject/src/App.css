@@ -1,0 +1,24 @@
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.App {
+  
+  justify-content: center;
+  align-items: center;
+  height: 150%;
+  width: 100%;
+  position: absolute;
+  background-color: skyblue;
+}
+
+.search {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  color: white;
+}
+
+
