@@ -1,108 +1,133 @@
-import React, { useState,useEffect} from 'react';
-import './movie.css';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import movieDetail from './movieDetail.js';
-import { useNavigate } from 'react-router-dom';
 
+import './movie.css';
+import Skeleton from './skeleton';
 
 const MovieSearch = () => {
   const apiKey = '1074b154';
-    const [search, setSearch] = useState("");
-    const [movies, setMovies] = useState([]);
-    const navigate = useNavigate();
-    const [page, setPage] = useState(1); // 현재 페이지 상태 추가
-    const [totalResults, setTotalResults] = useState(0); // 총 결과 수 상태 추가
-    
-    const itemsPerPage = 10; // 페이지당 항목 수
+  const [search, setSearch] = useState("");
+  const [movies, setMovies] = useState([]);
+  const [loading, setLoading] = useState(false); // 로딩 상태 추가
+  const navigate = useNavigate();
+  const [page, setPage] = useState(1);
+  const [totalResults, setTotalResults] = useState(0);
+  const loader = useRef(null);
 
-    useEffect(() => {
-        const fetchInitialData = async () => {
-          try {
-            const response = await axios.get(`http://www.omdbapi.com/?s=popular&apikey=${apiKey}&page=${page}`);
-            if (response.data.Search) {
-              setMovies(response.data.Search);
-              setTotalResults(response.data.totalResults);
-            } else {
-              setMovies([]);
-            }
-          } catch (error) {
-            console.error('데이터 가져오기 오류:', error);
-            setMovies([]);
-          }
-        };
-    
-        fetchInitialData();
-      }, [page, apiKey]);//초기화면
-    
-    useEffect(() => {
-      const fetchData = async () => {
-          if (search.trim() === "") {
-              setMovies([]);
-              return;
-          }
+  const itemsPerPage = 10;
 
-          try {
-              const response = await axios.get(`http://www.omdbapi.com/?s=${search}&apikey=${apiKey}`);
-              if (response.data.Search) {
-                  setMovies(response.data.Search);
-                
-              } else {
-                  setMovies([]);
-              }
-          } catch (error) {
-              console.error('데이터 가져오기 오류:', error);
-              setMovies([]);
-          }
-      };
-      const debounceFetchData = setTimeout(() => {
-        fetchData();
-    }, 500); // 500ms 디바운싱 
-  }, [search, apiKey]);//검색결과
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      setLoading(true); // 로딩 시작
+      try {
+        const response = await axios.get(`http://www.omdbapi.com/?s=popular&apikey=${apiKey}&page=${page}`);
+        if (response.data.Search) {
+          setMovies(prevMovies => [...prevMovies, ...response.data.Search]);
+          setTotalResults(response.data.totalResults);
+        } else {
+          setMovies([]);
+        }
+      } catch (error) {
+        console.error('데이터 가져오기 오류:', error);
+        setMovies([]);
+      }
+      setLoading(false); // 로딩 종료
+    };
 
+    fetchInitialData();
+  }, [page, apiKey]);
 
-  
+  useEffect(() => {
+    const fetchData = async () => {
+      if (search.trim() === "") {
+        setMovies([]);
+        return;
+      }
+      setLoading(true); // 로딩 시작
+      try {
+        const response = await axios.get(`http://www.omdbapi.com/?s=${search}&apikey=${apiKey}`);
+        if (response.data.Search) {
+          setMovies(response.data.Search);
+        } else {
+          setMovies([]);
+        }
+      } catch (error) {
+        console.error('데이터 가져오기 오류:', error);
+        setMovies([]);
+      }
+      setLoading(false); // 로딩 종료
+    };
+
+    const debounceFetchData = setTimeout(() => {
+      fetchData();
+    }, 500);
+
+    return () => clearTimeout(debounceFetchData);
+  }, [search, apiKey]);
+
   const onChange = (e) => {
-      setSearch(e.target.value); 
-      setPage(1);
-   }; //검색
+    setSearch(e.target.value);
+    setPage(1);
+  };
 
   const handleClick = (id) => {
     navigate(`/movie/${id}`);
-    } //영화 클릭
+  };
 
   const filterTitle = movies.filter((p) => {
-      return p.Title.replaceAll(" ","").toLocaleLowerCase().includes(search.replaceAll(" ","").toLocaleLowerCase());
+    return p.Title.replaceAll(" ", "").toLowerCase().includes(search.replaceAll(" ", "").toLowerCase());
   });
 
-  const totalPages = Math.ceil(totalResults / itemsPerPage);
-    
-   return(
+  const handleObserver = useCallback((entries) => {
+    const target = entries[0];
+    if (target.isIntersecting) {
+      setPage(prevPage => prevPage + 1);
+    }
+  }, []);
+
+  useEffect(() => {
+    const option = {
+      root: null,
+      rootMargin: '20px',
+      threshold: 1.0
+    };
+    const observer = new IntersectionObserver(handleObserver, option);
+    if (loader.current) observer.observe(loader.current);
+
+    return () => {
+      if (loader.current) observer.unobserve(loader.current);
+    };
+  }, [handleObserver]);
+
+  return (
     <div>
-        <div className='Search'>
-            <input type = 'text' value={search} onChange={onChange}/>
-        </div>
-
-        <div className='movieTitle'>  
-            {filterTitle.map(movie => 
-            <div key={movie.imdbID} className='movieLayout' onClick={() => handleClick(movie.imdbID)}>
-                <img src={movie.Poster} alt={movie.Title} className="moviePoster" />
-              <span>{movie.Title}</span>
-        </div>)}
-            
-
-        <div className='pagination'>
-        <button className = 'previous'onClick={() => setPage(page - 1)} disabled={page === 1}>
-          Previous
-        </button>
-        <span className='pageNum'>Page {page} of {totalPages}</span>
-        <button className='next' onClick={() => setPage(page + 1)} disabled={page === totalPages}>
-          Next
-        </button>
+      <div className='Search'>
+        <input type='text' value={search} onChange={onChange} />
       </div>
+
+      <div className='movieTitle'>
+        {loading ? (
+          <div className="skeleton-container">
+            {Array.from({ length: itemsPerPage }).map((_, index) => (
+              <Skeleton key={index} />
+            ))}
+          </div>
+        ) : (
+          filterTitle.map(movie => (
+            <div key={movie.imdbID} className='movieLayout' onClick={() => handleClick(movie.imdbID)}>
+              <img src={movie.Poster} alt={movie.Title} className="moviePoster" />
+              <span>{movie.Title}</span>
+            </div>
+          ))
+        )}
+
+        <div ref={loader} className="loading">
+          {loading && <Skeleton />}
         </div>
-
-
-    </div>)
-}
+      </div>
+    </div>
+  );
+};
 
 export default MovieSearch;
