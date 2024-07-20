@@ -1,0 +1,39 @@
+.skeleton {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    width: calc(25% - 20px);
+    margin-bottom: 20px;
+    background-color: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.skeleton-img {
+    width: 100%;
+    height: auto;
+    max-height: 300px;
+    background-color: #d0d0d0;
+    margin-right: 10px;
+    object-fit: contain;
+}
+
+.skeleton-info {
+    flex-grow: 1;
+}
+
+.skeleton-title, .skeleton-year {
+    height: 20px;
+    background-color: #d0d0d0;
+    margin-bottom: 10px;
+}
+
+.skeleton-title {
+    width: 80%;
+}
+
+.skeleton-year {
+    width: 40%;
+}
