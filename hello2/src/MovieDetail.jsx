@@ -1,0 +1,1 @@
+const [searchQuery] = useAtom(searchQueryAtom);
