@@ -2,29 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import './movieDetail.css';
+import { useAtom } from 'jotai';
+import { searchAtom } from './atoms.js';
 
 const MovieDetail = () => {
   const { id } = useParams();
-  const apiKey = '1074b154';
+
   const [movie, setMovie] = useState(null);
+  const [search] = useAtom(searchAtom);
 
-  useEffect(() => {
-    const fetchMovieDetails = async () => {
-      try {
-        const response = await axios.get(`http://www.omdbapi.com/?i=${id}&apikey=${apiKey}`);
-        setMovie(response.data);
-        console.log(response.data);
-      } catch (error) {
-        console.error('데이터 가져오기 오류:', error);
-      }
-    };
-
-    fetchMovieDetails();
-  }, [id, apiKey]);
-
-  if (!movie) {
-    return <div className='loading'>Loading...</div>;
-  }
 
   return (
     <div className='detailContainer'>
@@ -44,4 +30,4 @@ const MovieDetail = () => {
   );
 };
 
-export default MovieDetail;
+export default MovieDetail; 
