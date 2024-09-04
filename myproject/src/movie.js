@@ -1,70 +1,35 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-
+import { useNavigate } from 'react-router-dom';
+import { useAtom } from 'jotai';
+import { useQuery, gql } from '@apollo/client';
+import { searchAtom } from './atoms.js'; // Jotai atom import
 import './movie.css';
-import Skeleton from './skeleton';
+
+
+const SEARCH_MOVIES = gql`
+  query SearchMovies($query: String!, $page: Int!) {
+    searchMovies(query: $query, page: $page) {
+      id
+      title
+      overview
+      poster_path
+      release_date
+    }
+  }
+`;
 
 const MovieSearch = () => {
-  const apiKey = '1074b154';
-  const [search, setSearch] = useState("");
-  const [movies, setMovies] = useState([]);
-  const [loading, setLoading] = useState(false); // 로딩 상태 추가
+  const [search, setSearch] = useAtom(searchAtom);
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
-  const [totalResults, setTotalResults] = useState(0);
   const loader = useRef(null);
 
-  const itemsPerPage = 10;
+  const { data, loading, fetchMore } = useQuery(SEARCH_MOVIES, {
+    variables: { query: search, page },
+    skip: !search,
+  });
 
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      setLoading(true); // 로딩 시작
-      try {
-        const response = await axios.get(`http://www.omdbapi.com/?s=popular&apikey=${apiKey}&page=${page}`);
-        if (response.data.Search) {
-          setMovies(prevMovies => [...prevMovies, ...response.data.Search]);
-          setTotalResults(response.data.totalResults);
-        } else {
-          setMovies([]);
-        }
-      } catch (error) {
-        console.error('데이터 가져오기 오류:', error);
-        setMovies([]);
-      }
-      setLoading(false); // 로딩 종료
-    };
-
-    fetchInitialData();
-  }, [page, apiKey]);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      if (search.trim() === "") {
-        setMovies([]);
-        return;
-      }
-      setLoading(true); // 로딩 시작
-      try {
-        const response = await axios.get(`http://www.omdbapi.com/?s=${search}&apikey=${apiKey}`);
-        if (response.data.Search) {
-          setMovies(response.data.Search);
-        } else {
-          setMovies([]);
-        }
-      } catch (error) {
-        console.error('데이터 가져오기 오류:', error);
-        setMovies([]);
-      }
-      setLoading(false); // 로딩 종료
-    };
-
-    const debounceFetchData = setTimeout(() => {
-      fetchData();
-    }, 500);
-
-    return () => clearTimeout(debounceFetchData);
-  }, [search, apiKey]);
+  const movies = data?.searchMovies || [];
 
   const onChange = (e) => {
     setSearch(e.target.value);
@@ -75,30 +40,39 @@ const MovieSearch = () => {
     navigate(`/movie/${id}`);
   };
 
-  const filterTitle = movies.filter((p) => {
-    return p.Title.replaceAll(" ", "").toLowerCase().includes(search.replaceAll(" ", "").toLowerCase());
-  });
-
   const handleObserver = useCallback((entries) => {
     const target = entries[0];
-    if (target.isIntersecting) {
-      setPage(prevPage => prevPage + 1);
+    if (target.isIntersecting && !loading && data?.searchMovies) { // 조건을 추가하여 불필요한 호출 방지
+      fetchMore({
+        variables: { query: search, page: page + 1 },
+        updateQuery: (prev, { fetchMoreResult }) => {
+          if (!fetchMoreResult) return prev;
+  
+          return {
+            searchMovies: [...(prev.searchMovies || []), ...fetchMoreResult.searchMovies],
+          };
+        },
+      });
+      setPage((prevPage) => prevPage + 1);
     }
-  }, []);
+  }, [loading, fetchMore, search, page, data]); // 의존성 배열을 정확히 관리
+  
+  
 
   useEffect(() => {
     const option = {
       root: null,
       rootMargin: '20px',
-      threshold: 1.0
+      threshold: 1.0,
     };
     const observer = new IntersectionObserver(handleObserver, option);
     if (loader.current) observer.observe(loader.current);
-
+  
     return () => {
       if (loader.current) observer.unobserve(loader.current);
     };
-  }, [handleObserver]);
+  }, [handleObserver]); // 의존성 배열에 handleObserver만 포함하여 불필요한 재호출 방지
+  
 
   return (
     <div>
@@ -107,25 +81,18 @@ const MovieSearch = () => {
       </div>
 
       <div className='movieTitle'>
-        {loading ? (
-          <div className="skeleton-container">
-            {Array.from({ length: itemsPerPage }).map((_, index) => (
-              <Skeleton key={index} />
-            ))}
-          </div>
-        ) : (
-          filterTitle.map(movie => (
-            <div key={movie.imdbID} className='movieLayout' onClick={() => handleClick(movie.imdbID)}>
-              <img src={movie.Poster} alt={movie.Title} className="moviePoster" />
-              <span>{movie.Title}</span>
-            </div>
-          ))
-        )}
+  {movies.map((movie) => (
+    <div key={movie.id} className='movieLayout' onClick={() => handleClick(movie.id)}>
+      <img 
+        src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`} 
+        alt={movie.title} 
+        className="moviePoster" 
+      />
+      <span>{movie.title}</span>
+    </div>
+  ))}
+</div>
 
-        <div ref={loader} className="loading">
-          {loading && <Skeleton />}
-        </div>
-      </div>
     </div>
   );
 };
